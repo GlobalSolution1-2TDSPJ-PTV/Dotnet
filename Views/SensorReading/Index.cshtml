@@ -1,0 +1,27 @@
+﻿@model IEnumerable<FloodWatch.Domain.DTOS.SensorReadingResponseDto>
+
+@{
+    ViewData["Title"] = "Sensor Readings";
+}
+
+<h2>Sensor Readings</h2>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Sensor ID</th>
+            <th>Value</th>
+            <th>Timestamp</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var reading in Model)
+        {
+            <tr>
+                <td>@reading.SensorId</td>
+                <td>@reading.SensorValue</td>
+                <td>@reading.CreatedAt.ToString("g")</td>
+            </tr>
+        }
+    </tbody>
+</table>
