@@ -3,107 +3,112 @@ using FloodWatch.Domain.Entities;
 using FloodWatch.Infrastructure.Persistence.Repository;
 using Microsoft.AspNetCore.Mvc;
 
-namespace FloodWatch.API.Controllers
+[ApiController]
+[Route("api/[controller]")]
+public class SensorReadingController : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class SensorReadingController : ControllerBase
+    private readonly IRepository<SensorReading> _readingRepository;
+    private readonly IRepository<Alert> _alertRepository;
+
+    public SensorReadingController(IRepository<SensorReading> readingRepository, IRepository<Alert> alertRepository)
     {
-        private readonly IRepository<SensorReading> _readingRepository;
+        _readingRepository = readingRepository;
+        _alertRepository = alertRepository;
+    }
 
-        private readonly IRepository<Alert> _alertRepository;
+    [HttpGet]
+    [ProducesResponseType(typeof(IEnumerable<SensorReadingResponseDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<SensorReadingResponseDto>>> GetAll()
+    {
+        var readings = await _readingRepository.GetAllAsync();
 
-        public SensorReadingController(IRepository<SensorReading> readingRepository, IRepository<Alert> alertRepository)
+        var response = readings.Select(r => new SensorReadingResponseDto
         {
-            _readingRepository = readingRepository;
-            _alertRepository = alertRepository;
-        }
+            Id = r.Id,
+            SensorId = r.SensorId,
+            SensorValue = r.SensorValue,
+            CreatedAt = r.CreatedAt
+        });
 
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<SensorReadingResponseDto>>> GetAll()
+        return Ok(response);
+    }
+
+    [HttpGet("{id}")]
+    [ProducesResponseType(typeof(SensorReadingResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SensorReadingResponseDto>> GetById(Guid id)
+    {
+        var reading = await _readingRepository.GetByIdAsync(id);
+        if (reading == null) return NotFound();
+
+        var dto = new SensorReadingResponseDto
         {
-            var readings = await _readingRepository.GetAllAsync();
+            Id = reading.Id,
+            SensorId = reading.SensorId,
+            SensorValue = reading.SensorValue,
+            CreatedAt = reading.CreatedAt
+        };
 
-            var response = readings.Select(r => new SensorReadingResponseDto
-            {
-                Id = r.Id,
-                SensorId = r.SensorId,
-                SensorValue = r.SensorValue,
-                CreatedAt = r.CreatedAt
-            });
+        return Ok(dto);
+    }
 
-            return Ok(response);
-        }
-
-        [HttpGet("{id}")]
-        public async Task<ActionResult<SensorReadingResponseDto>> GetById(Guid id)
+    [HttpPost]
+    [Consumes("application/json")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    public async Task<ActionResult> Create(SensorReadingCreateDto dto)
+    {
+        var reading = new SensorReading
         {
-            var reading = await _readingRepository.GetByIdAsync(id);
-            if (reading == null) return NotFound();
+            Id = Guid.NewGuid(),
+            SensorId = dto.SensorId,
+            SensorValue = dto.SensorValue,
+            CreatedAt = DateTime.UtcNow
+        };
 
-            var dto = new SensorReadingResponseDto
-            {
-                Id = reading.Id,
-                SensorId = reading.SensorId,
-                SensorValue = reading.SensorValue,
-                CreatedAt = reading.CreatedAt
-            };
+        await _readingRepository.AddAsync(reading);
 
-            return Ok(dto);
-        }
-
-        [HttpPost]
-        public async Task<ActionResult> Create(SensorReadingCreateDto dto)
+        if (reading.SensorValue > 1.5)
         {
-            var reading = new SensorReading
+            var alerta = new Alert
             {
                 Id = Guid.NewGuid(),
-                SensorId = dto.SensorId,
-                SensorValue = dto.SensorValue,
-                CreatedAt = DateTime.UtcNow
+                SensorId = reading.SensorId,
+                Type = "enchente",
+                Message = $"Nível da água crítico: {reading.SensorValue}m",
+                Level = "critico",
+                CreatedAt = DateTime.UtcNow,
+                IsResolved = false
             };
 
-            await _readingRepository.AddAsync(reading);
-
-            if (reading.SensorValue > 1.5)
-            {
-                var alerta = new Alert
-                {
-                    Id = Guid.NewGuid(),
-                    SensorId = reading.SensorId,
-                    Type = "enchente",
-                    Message = $"Nível da água crítico: {reading.SensorValue}m",
-                    Level = "critico",
-                    CreatedAt = DateTime.UtcNow,
-                    IsResolved = false
-                };
-
-                await _alertRepository.AddAsync(alerta);
-            }
-
-            return CreatedAtAction(nameof(GetById), new { id = reading.Id }, null);
+            await _alertRepository.AddAsync(alerta);
         }
 
-        [HttpPut("{id}")]
-        public async Task<ActionResult> Update(Guid id, SensorReadingCreateDto dto)
-        {
-            var existing = await _readingRepository.GetByIdAsync(id);
-            if (existing == null) return NotFound();
+        return CreatedAtAction(nameof(GetById), new { id = reading.Id }, null);
+    }
 
-            existing.SensorValue = dto.SensorValue;
+    [HttpPut("{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> Update(Guid id, SensorReadingCreateDto dto)
+    {
+        var existing = await _readingRepository.GetByIdAsync(id);
+        if (existing == null) return NotFound();
 
-            await _readingRepository.UpdateAsync(existing);
-            return NoContent();
-        }
+        existing.SensorValue = dto.SensorValue;
 
-        [HttpDelete("{id}")]
-        public async Task<ActionResult> Delete(Guid id)
-        {
-            var reading = await _readingRepository.GetByIdAsync(id);
-            if (reading == null) return NotFound();
+        await _readingRepository.UpdateAsync(existing);
+        return NoContent();
+    }
 
-            await _readingRepository.DeleteAsync(reading);
-            return NoContent();
-        }
+    [HttpDelete("{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> Delete(Guid id)
+    {
+        var reading = await _readingRepository.GetByIdAsync(id);
+        if (reading == null) return NotFound();
+
+        await _readingRepository.DeleteAsync(reading);
+        return NoContent();
     }
 }
