@@ -108,6 +108,30 @@ quando rodar esse gerará um alerta automaticamente pois o limite 1.5
 
 ---
 
+## ⚙️ Configuração e Execução
+
+### 🔧 1. Configurar a Connection String
+
+No arquivo `appsettings.json`, configure a string de conexão com o banco Oracle:
+
+```json
+"ConnectionStrings": {
+  "Oracle": "Data Source=oracle.fiap.com.br:1521/orcl;User ID=SEU_USUARIO;Password=SUA_SENHA;"
+}
+```
+### 2. Realizar a migração
+
+Abri o Package Manager Console e dar o comando
+
+```bash
+  Update-Database
+```
+### 3. Rodar o Projeto
+
+rode o projeto e abra no seu navegador. Normalmente ele fica no http://localhost:5146/swagger/index.html, porem sua ide pode rodar em outra porta então você altera a porta em vez de ser 5146 vai ser outra porta
+
+---
+
 ## 🛠 TECNOLOGIAS E ESTRUTURA
 
 - .NET 8
